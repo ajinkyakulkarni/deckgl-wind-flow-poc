@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wind Flow Visualization</title>
+    <script src="https://unpkg.com/deck.gl@8.9.35/dist.min.js"></script>
+    <script src="https://unpkg.com/@loaders.gl/core@3.4.14/dist/dist.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            color: white;
+            min-width: 200px;
+        }
+        
+        #controls h3 {
+            margin: 0 0 15px 0;
+            font-size: 16px;
+            color: #fff;
+            opacity: 0.9;
+        }
+        
+        .control-group {
+            margin-bottom: 12px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #fff;
+            opacity: 0.7;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            cursor: pointer;
+            border: none;
+            opacity: 0.8;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            width: 100%;
+            transition: all 0.3s;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .stats {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            opacity: 0.9;
+            text-align: center;
+            width: 300px;
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #0088ff);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .loading-status {
+            margin-top: 10px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">
+            <div>Loading Wind Data...</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <div class="loading-status" id="loadingStatus">Initializing...</div>
+        </div>
+    </div>
+    
+    <div id="controls" style="display: none;">
+        <h3>Wind Flow</h3>
+        
+        <div class="control-group">
+            <button id="toggleAnimation">Pause</button>
+        </div>
+        
+        <div class="control-group">
+            <label>Particle Count: <span id="particleCountLabel">3000</span></label>
+            <input type="range" id="particleCount" min="1000" max="10000" step="500" value="3000">
+        </div>
+        
+        <div class="control-group">
+            <label>Speed: <span id="speedLabel">1.0</span></label>
+            <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1">
+        </div>
+        
+        <div class="control-group">
+            <label>Fade Speed: <span id="fadeLabel">0.98</span></label>
+            <input type="range" id="fade" min="0.9" max="0.99" step="0.01" value="0.98">
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <span>FPS:</span>
+                <span id="fps">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Active:</span>
+                <span id="activeCount">0</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const config = {
+            particleCount: 3000, // Reduced for better performance
+            maxAge: 100,
+            speedFactor: 1.0,
+            fadeAmount: 0.98,
+            lineWidth: 1.0,
+            windGridSize: 2 // degrees
+        };
+
+        // State
+        let deckgl;
+        let particles = [];
+        let windField = [];
+        let windData = new Map(); // Store wind data by lat,lon key
+        let windGrid = {}; // Spatial grid for fast lookup
+        let gridResolution = 1; // degrees
+        let isAnimating = true;
+        let frameCount = 0;
+        let lastTime = performance.now();
+        let particleTrails = new Map(); // Store trail points for each particle
+
+        // Update progress bar
+        function updateProgress(percent, status) {
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('loadingStatus').textContent = status;
+        }
+
+        // Load wind data from CSV
+        async function loadWindData() {
+            try {
+                updateProgress(10, 'Fetching wind data...');
+                const response = await fetch('uv.csv');
+                
+                updateProgress(30, 'Parsing CSV data...');
+                const text = await response.text();
+                const lines = text.trim().split('\n');
+                const header = lines[0].split(',');
+                
+                windField = [];
+                windData.clear();
+                
+                const totalLines = lines.length - 1;
+                updateProgress(40, `Processing ${totalLines} data points...`);
+                
+                // For large datasets, we'll sample the data to improve performance
+                const sampleRate = totalLines > 100000 ? Math.ceil(totalLines / 50000) : 1;
+                const actualDataPoints = Math.ceil(totalLines / sampleRate);
+                updateProgress(40, `Sampling ${actualDataPoints} from ${totalLines} points...`);
+                
+                let processedCount = 0;
+                for (let i = 1; i < lines.length; i += sampleRate) {
+                    const values = lines[i].split(',');
+                    const lat = parseFloat(values[2]);
+                    const lon = parseFloat(values[3]);
+                    const u = parseFloat(values[4]);
+                    const v = parseFloat(values[5]);
+                    
+                    // Skip invalid data
+                    if (isNaN(lat) || isNaN(lon) || isNaN(u) || isNaN(v)) continue;
+                    
+                    windField.push({
+                        position: [lon, lat],
+                        u: u,
+                        v: v
+                    });
+                    
+                    // Store in map for quick lookup
+                    const key = `${lat},${lon}`;
+                    windData.set(key, { u, v });
+                    
+                    processedCount++;
+                    
+                    // Update progress periodically
+                    if (processedCount % 1000 === 0) {
+                        const progress = 40 + (processedCount / actualDataPoints) * 30;
+                        updateProgress(progress, `Processing ${processedCount} of ${actualDataPoints} sampled points...`);
+                        await new Promise(resolve => setTimeout(resolve, 1)); // Allow UI to update
+                    }
+                }
+                
+                updateProgress(80, `Loaded ${windField.length} wind data points`);
+                console.log(`Loaded ${windField.length} wind data points`);
+                
+                // Build spatial grid for fast lookup
+                updateProgress(85, 'Building spatial index...');
+                windGrid = {};
+                windField.forEach(point => {
+                    const gridX = Math.floor(point.position[0] / gridResolution);
+                    const gridY = Math.floor(point.position[1] / gridResolution);
+                    const key = `${gridX},${gridY}`;
+                    
+                    if (!windGrid[key]) {
+                        windGrid[key] = [];
+                    }
+                    windGrid[key].push(point);
+                });
+                
+                console.log('Wind grid cells:', Object.keys(windGrid).length);
+                console.log('Sample wind values:', windField.slice(0, 5).map(w => ({ lon: w.position[0], lat: w.position[1], u: w.u, v: w.v })));
+                
+                updateProgress(90, 'Wind data loaded successfully');
+                return true;
+            } catch (error) {
+                console.error('Error loading wind data:', error);
+                updateProgress(50, 'Failed to load CSV, using generated data...');
+                // Fall back to generated data
+                generateWindField();
+                updateProgress(90, 'Using generated wind data');
+                return false;
+            }
+        }
+
+        // Generate realistic wind field data (fallback)
+        function generateWindField() {
+            windField = [];
+            const { windGridSize } = config;
+            
+            for (let lat = -90; lat <= 90; lat += windGridSize) {
+                for (let lon = -180; lon <= 180; lon += windGridSize) {
+                    // Create more realistic wind patterns
+                    const latRad = lat * Math.PI / 180;
+                    const lonRad = lon * Math.PI / 180;
+                    
+                    // Base wind patterns
+                    let u = 0, v = 0;
+                    
+                    // Trade winds (0-30°)
+                    if (Math.abs(lat) <= 30) {
+                        u = -15 * Math.cos(latRad) * (1 + 0.5 * Math.sin(lonRad * 3));
+                        v = 8 * Math.sin(2 * latRad) * Math.cos(lonRad * 2);
+                    }
+                    // Westerlies (30-60°)
+                    else if (Math.abs(lat) <= 60) {
+                        u = 20 * Math.cos(latRad) * (1 + 0.3 * Math.cos(lonRad * 4));
+                        v = 12 * Math.sin(latRad) * (1 + 0.4 * Math.sin(lonRad * 2));
+                    }
+                    // Polar easterlies (60-90°)
+                    else {
+                        u = -10 * Math.cos(latRad);
+                        v = 8 * Math.sin(latRad) * Math.cos(lonRad);
+                    }
+                    
+                    // Add circular patterns (high/low pressure systems)
+                    const centerLon1 = -60;
+                    const centerLat1 = 40;
+                    const dist1 = Math.sqrt(Math.pow(lon - centerLon1, 2) + Math.pow(lat - centerLat1, 2));
+                    if (dist1 < 30) {
+                        const angle1 = Math.atan2(lat - centerLat1, lon - centerLon1);
+                        u += 15 * Math.sin(angle1) * Math.exp(-dist1 / 20);
+                        v += -15 * Math.cos(angle1) * Math.exp(-dist1 / 20);
+                    }
+                    
+                    // Add another circular pattern
+                    const centerLon2 = 120;
+                    const centerLat2 = -30;
+                    const dist2 = Math.sqrt(Math.pow(lon - centerLon2, 2) + Math.pow(lat - centerLat2, 2));
+                    if (dist2 < 30) {
+                        const angle2 = Math.atan2(lat - centerLat2, lon - centerLon2);
+                        u += -15 * Math.sin(angle2) * Math.exp(-dist2 / 20);
+                        v += 15 * Math.cos(angle2) * Math.exp(-dist2 / 20);
+                    }
+                    
+                    // Add turbulence and variation
+                    u += 8 * Math.sin(lonRad * 3 + latRad * 2);
+                    v += 6 * Math.cos(lonRad * 2 - latRad * 3);
+                    
+                    // Add noise
+                    u += (Math.random() - 0.5) * 10;
+                    v += (Math.random() - 0.5) * 10;
+                    
+                    windField.push({
+                        position: [lon, lat],
+                        u: u,
+                        v: v
+                    });
+                }
+            }
+        }
+
+        // Fast interpolation using spatial grid
+        function interpolateWind(lon, lat) {
+            // Normalize longitude
+            while (lon > 180) lon -= 360;
+            while (lon < -180) lon += 360;
+            
+            // Clamp latitude
+            lat = Math.max(-90, Math.min(90, lat));
+            
+            // Find grid cell
+            const gridX = Math.floor(lon / gridResolution);
+            const gridY = Math.floor(lat / gridResolution);
+            
+            // Check surrounding cells
+            const nearbyPoints = [];
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const key = `${gridX + dx},${gridY + dy}`;
+                    if (windGrid[key]) {
+                        windGrid[key].forEach(point => {
+                            const dist = Math.sqrt(
+                                Math.pow(point.position[0] - lon, 2) + 
+                                Math.pow(point.position[1] - lat, 2)
+                            );
+                            if (dist < gridResolution * 2) {
+                                nearbyPoints.push({ point, dist });
+                            }
+                        });
+                    }
+                }
+            }
+            
+            if (nearbyPoints.length === 0) {
+                return { u: 0, v: 0 };
+            }
+            
+            // Use closest 4 points for interpolation
+            nearbyPoints.sort((a, b) => a.dist - b.dist);
+            const interpolationPoints = nearbyPoints.slice(0, Math.min(4, nearbyPoints.length));
+            
+            let totalWeight = 0;
+            let u = 0;
+            let v = 0;
+            
+            interpolationPoints.forEach(({ point, dist }) => {
+                const weight = 1 / (0.01 + dist * dist); // Inverse distance squared
+                totalWeight += weight;
+                u += point.u * weight;
+                v += point.v * weight;
+            });
+            
+            return { 
+                u: u / totalWeight, 
+                v: v / totalWeight 
+            };
+        }
+
+        // Initialize particles
+        function initParticles() {
+            particles = [];
+            particleTrails.clear();
+            
+            for (let i = 0; i < config.particleCount; i++) {
+                const particle = {
+                    id: i,
+                    lon: Math.random() * 360 - 180,
+                    lat: Math.random() * 170 - 85, // Avoid poles
+                    age: Math.random() * config.maxAge
+                };
+                
+                particles.push(particle);
+                particleTrails.set(i, []);
+            }
+            
+            document.getElementById('activeCount').textContent = config.particleCount;
+        }
+
+        // Update particle positions
+        function updateParticles() {
+            const dt = 0.01 * config.speedFactor;
+            
+            particles.forEach(particle => {
+                // Get interpolated wind at particle position
+                const wind = interpolateWind(particle.lon, particle.lat);
+                
+                // Store current position in trail
+                const trail = particleTrails.get(particle.id);
+                trail.push({
+                    lon: particle.lon,
+                    lat: particle.lat,
+                    age: 0
+                });
+                
+                // Limit trail length
+                if (trail.length > 30) {
+                    trail.shift();
+                }
+                
+                // Update trail point ages
+                trail.forEach(point => {
+                    point.age += 1;
+                });
+                
+                // Update particle position
+                // Scale the movement based on typical wind speeds (m/s to degrees)
+                const scaleFactor = 0.5; // Increased for more visible movement
+                particle.lon += wind.u * dt * scaleFactor;
+                particle.lat += wind.v * dt * scaleFactor;
+                
+                // Age particle
+                particle.age += 1;
+                
+                // Reset particle if too old or out of bounds
+                if (particle.age > config.maxAge || 
+                    Math.abs(particle.lat) > 85 ||
+                    !isFinite(particle.lon) || !isFinite(particle.lat)) {
+                    particle.lon = Math.random() * 360 - 180;
+                    particle.lat = Math.random() * 170 - 85;
+                    particle.age = 0;
+                    particleTrails.set(particle.id, []);
+                }
+                
+                // Wrap longitude
+                while (particle.lon > 180) particle.lon -= 360;
+                while (particle.lon < -180) particle.lon += 360;
+            });
+        }
+
+        // Create trail data for rendering
+        function createTrailData() {
+            const paths = [];
+            
+            particleTrails.forEach((trail, particleId) => {
+                if (trail.length < 2) return;
+                
+                const particle = particles[particleId];
+                const wind = interpolateWind(particle.lon, particle.lat);
+                const speed = Math.sqrt(wind.u * wind.u + wind.v * wind.v);
+                
+                // Create path from trail points
+                const path = trail.map(point => [point.lon, point.lat]);
+                
+                // Add current particle position
+                path.push([particle.lon, particle.lat]);
+                
+                paths.push({
+                    path: path,
+                    color: getColorFromSpeed(speed),
+                    width: 1 + speed * 0.02
+                });
+            });
+            
+            return paths;
+        }
+
+        // Get color based on wind speed
+        function getColorFromSpeed(speed) {
+            const normalized = Math.min(speed / 50, 1);
+            
+            // Create a gradient from blue to white
+            const r = 100 + normalized * 155;
+            const g = 150 + normalized * 105;
+            const b = 255;
+            const a = 200 * config.fadeAmount;
+            
+            return [r, g, b, a];
+        }
+
+        // Initialize deck.gl
+        function initDeck() {
+            deckgl = new deck.DeckGL({
+                container: 'container',
+                mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+                initialViewState: {
+                    longitude: 0,
+                    latitude: 20,
+                    zoom: 2,
+                    pitch: 0,
+                    bearing: 0
+                },
+                controller: true,
+                onViewStateChange: ({viewState}) => {
+                    return viewState;
+                }
+            });
+            
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('controls').style.display = 'block';
+        }
+
+        // Render frame
+        function render() {
+            if (!isAnimating) return;
+            
+            updateParticles();
+            
+            const trailData = createTrailData();
+            
+            // Debug: Log first particle position periodically
+            if (frameCount % 60 === 0 && particles.length > 0) {
+                const p = particles[0];
+                const wind = interpolateWind(p.lon, p.lat);
+                console.log('Particle 0:', { lon: p.lon.toFixed(2), lat: p.lat.toFixed(2), wind_u: wind.u, wind_v: wind.v });
+            }
+            
+            deckgl.setProps({
+                layers: [
+                    // Wind trails
+                    new deck.PathLayer({
+                        id: 'wind-trails',
+                        data: trailData,
+                        getPath: d => d.path,
+                        getColor: d => d.color,
+                        getWidth: d => d.width,
+                        widthMinPixels: 0.5,
+                        widthMaxPixels: 2,
+                        rounded: true,
+                        billboard: false,
+                        opacity: config.fadeAmount
+                    })
+                ]
+            });
+            
+            // Update FPS
+            frameCount++;
+            const now = performance.now();
+            if (now - lastTime > 1000) {
+                document.getElementById('fps').textContent = Math.round(frameCount * 1000 / (now - lastTime));
+                frameCount = 0;
+                lastTime = now;
+            }
+            
+            requestAnimationFrame(render);
+        }
+
+        // Event listeners
+        document.getElementById('toggleAnimation').addEventListener('click', () => {
+            isAnimating = !isAnimating;
+            document.getElementById('toggleAnimation').textContent = isAnimating ? 'Pause' : 'Play';
+            if (isAnimating) render();
+        });
+
+        document.getElementById('particleCount').addEventListener('input', (e) => {
+            config.particleCount = parseInt(e.target.value);
+            document.getElementById('particleCountLabel').textContent = config.particleCount;
+            initParticles();
+        });
+
+        document.getElementById('speed').addEventListener('input', (e) => {
+            config.speedFactor = parseFloat(e.target.value);
+            document.getElementById('speedLabel').textContent = config.speedFactor.toFixed(1);
+        });
+
+        document.getElementById('fade').addEventListener('input', (e) => {
+            config.fadeAmount = parseFloat(e.target.value);
+            document.getElementById('fadeLabel').textContent = config.fadeAmount.toFixed(2);
+        });
+
+        // Initialize
+        async function initialize() {
+            try {
+                // Try to load CSV data first
+                const loaded = await loadWindData();
+                if (!loaded) {
+                    console.log('Using generated wind data as fallback');
+                }
+                
+                updateProgress(92, 'Initializing particles...');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                initParticles();
+                
+                updateProgress(95, 'Setting up visualization...');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                initDeck();
+                
+                updateProgress(98, 'Starting animation...');
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                updateProgress(100, 'Complete!');
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                render();
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateProgress(100, 'Error occurred, but continuing...');
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('controls').style.display = 'block';
+            }
+        }
+        
+        initialize();
+    </script>
+</body>
+</html>

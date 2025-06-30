@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Wind Vector Visualization</title>
+    <!-- Deck.gl dependencies -->
+    <script src="https://unpkg.com/deck.gl@8.9.35/dist.min.js"></script>
+    <script src="https://unpkg.com/@loaders.gl/core@3.4.14/dist/dist.min.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 100;
+            min-width: 300px;
+        }
+        
+        #controls h2 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+            color: #333;
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+            font-size: 14px;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            border: none;
+        }
+        
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #45a049;
+        }
+        
+        button:active {
+            background: #3d8b40;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            margin-right: 8px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .checkbox-group label {
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+        
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            font-size: 14px;
+            max-width: 250px;
+        }
+        
+        #info h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .legend-color {
+            width: 30px;
+            height: 4px;
+            margin-right: 10px;
+            border-radius: 2px;
+        }
+        
+        .wind-slow { background: linear-gradient(90deg, #3498db, #5dade2); }
+        .wind-medium { background: linear-gradient(90deg, #f39c12, #f8c471); }
+        .wind-fast { background: linear-gradient(90deg, #e74c3c, #ec7063); }
+        
+        .stats {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div id="controls">
+        <h2>🌍 Global Wind Vectors</h2>
+        
+        <div class="control-group">
+            <button id="playPause">Pause Animation</button>
+        </div>
+        
+        <div class="checkbox-group">
+            <input type="checkbox" id="showParticles" checked>
+            <label for="showParticles">Show Wind Particles</label>
+        </div>
+        
+        <div class="checkbox-group">
+            <input type="checkbox" id="showVectors" checked>
+            <label for="showVectors">Show Vector Arrows</label>
+        </div>
+        
+        <div class="control-group">
+            <label for="particleCount">Particle Count: <span id="particleCountValue">5000</span></label>
+            <input type="range" id="particleCount" min="1000" max="20000" step="1000" value="5000">
+        </div>
+        
+        <div class="control-group">
+            <label for="particleSpeed">Animation Speed: <span id="particleSpeedValue">1.0x</span></label>
+            <input type="range" id="particleSpeed" min="0.1" max="3" step="0.1" value="1">
+        </div>
+        
+        <div class="control-group">
+            <label for="vectorScale">Vector Scale: <span id="vectorScaleValue">1.0x</span></label>
+            <input type="range" id="vectorScale" min="0.5" max="3" step="0.1" value="1">
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <span>Active Particles:</span>
+                <span class="stat-value" id="activeParticles">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Vector Grid:</span>
+                <span class="stat-value">10° × 10°</span>
+            </div>
+        </div>
+    </div>
+    
+    <div id="info">
+        <h3>Wind Speed Legend</h3>
+        <div class="legend-item">
+            <div class="legend-color wind-slow"></div>
+            <span>0-10 m/s (Light)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color wind-medium"></div>
+            <span>10-20 m/s (Moderate)</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color wind-fast"></div>
+            <span>&gt;20 m/s (Strong)</span>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let animationId = null;
+        let isPlaying = true;
+        let showParticles = true;
+        let showVectors = true;
+        let particleCount = 5000;
+        let animationSpeed = 1.0;
+        let vectorScale = 1.0;
+        let particles = [];
+        let windField = [];
+        let deckInstance = null;
+        let startTime = Date.now();
+
+        // Generate synthetic wind field data
+        function generateWindField() {
+            windField = [];
+            const gridSize = 10; // degrees
+            
+            for (let lat = -90; lat <= 90; lat += gridSize) {
+                for (let lon = -180; lon <= 180; lon += gridSize) {
+                    // Simulate global wind patterns
+                    let u, v; // u = east-west, v = north-south components
+                    
+                    // Trade winds near equator
+                    if (Math.abs(lat) < 30) {
+                        u = -15 - Math.random() * 10; // Easterly
+                        v = (Math.random() - 0.5) * 5;
+                    }
+                    // Westerlies in mid-latitudes
+                    else if (Math.abs(lat) < 60) {
+                        u = 20 + Math.random() * 15; // Westerly
+                        v = (Math.random() - 0.5) * 10;
+                    }
+                    // Polar easterlies
+                    else {
+                        u = -10 - Math.random() * 5;
+                        v = (Math.random() - 0.5) * 5;
+                    }
+                    
+                    // Add some variation based on longitude (simulate high/low pressure)
+                    u += Math.sin(lon * Math.PI / 180) * 5;
+                    v += Math.cos(lat * Math.PI / 180) * 3;
+                    
+                    windField.push({
+                        position: [lon, lat],
+                        u: u,
+                        v: v,
+                        speed: Math.sqrt(u * u + v * v),
+                        direction: Math.atan2(v, u) * 180 / Math.PI
+                    });
+                }
+            }
+        }
+
+        // Initialize particles
+        function initializeParticles() {
+            particles = [];
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    id: i,
+                    lon: Math.random() * 360 - 180,
+                    lat: Math.random() * 180 - 90,
+                    age: Math.random() * 100,
+                    maxAge: 100 + Math.random() * 50
+                });
+            }
+            document.getElementById('activeParticles').textContent = particleCount;
+        }
+
+        // Interpolate wind at particle position
+        function getWindAtPosition(lon, lat) {
+            // Find nearest grid points
+            const gridSize = 10;
+            const x0 = Math.floor(lon / gridSize) * gridSize;
+            const y0 = Math.floor(lat / gridSize) * gridSize;
+            const x1 = x0 + gridSize;
+            const y1 = y0 + gridSize;
+            
+            // Find wind vectors at corners
+            let winds = windField.filter(w => {
+                return (w.position[0] >= x0 && w.position[0] <= x1 &&
+                        w.position[1] >= y0 && w.position[1] <= y1);
+            });
+            
+            if (winds.length === 0) {
+                return { u: 0, v: 0 };
+            }
+            
+            // Simple average for now (could do bilinear interpolation)
+            let u = winds.reduce((sum, w) => sum + w.u, 0) / winds.length;
+            let v = winds.reduce((sum, w) => sum + w.v, 0) / winds.length;
+            
+            return { u, v };
+        }
+
+        // Update particle positions
+        function updateParticles(deltaTime) {
+            particles.forEach(p => {
+                const wind = getWindAtPosition(p.lon, p.lat);
+                
+                // Update position based on wind
+                const speedFactor = 0.001 * animationSpeed * deltaTime;
+                p.lon += wind.u * speedFactor;
+                p.lat += wind.v * speedFactor;
+                
+                // Wrap longitude
+                if (p.lon > 180) p.lon -= 360;
+                if (p.lon < -180) p.lon += 360;
+                
+                // Clamp latitude
+                p.lat = Math.max(-90, Math.min(90, p.lat));
+                
+                // Age particle
+                p.age += deltaTime * 0.02;
+                
+                // Reset old particles
+                if (p.age > p.maxAge) {
+                    p.lon = Math.random() * 360 - 180;
+                    p.lat = Math.random() * 180 - 90;
+                    p.age = 0;
+                    p.maxAge = 100 + Math.random() * 50;
+                }
+            });
+        }
+
+        // Get color based on wind speed
+        function getWindColor(speed) {
+            if (speed < 10) {
+                return [52, 152, 219, 200]; // Blue for light wind
+            } else if (speed < 20) {
+                return [243, 156, 18, 200]; // Orange for moderate wind
+            } else {
+                return [231, 76, 60, 200]; // Red for strong wind
+            }
+        }
+
+        // Create deck.gl layers
+        function createLayers() {
+            const layers = [];
+            
+            if (showParticles) {
+                // Particle layer
+                const particleData = particles.map(p => {
+                    const wind = getWindAtPosition(p.lon, p.lat);
+                    const speed = Math.sqrt(wind.u * wind.u + wind.v * wind.v);
+                    return {
+                        position: [p.lon, p.lat],
+                        color: getWindColor(speed),
+                        size: 2 + speed * 0.1,
+                        opacity: 1 - (p.age / p.maxAge) * 0.8
+                    };
+                });
+                
+                layers.push(new deck.ScatterplotLayer({
+                    id: 'wind-particles',
+                    data: particleData,
+                    getPosition: d => d.position,
+                    getFillColor: d => [...d.color.slice(0, 3), d.color[3] * d.opacity],
+                    getRadius: d => d.size,
+                    radiusMinPixels: 1,
+                    radiusMaxPixels: 5,
+                    opacity: 0.8
+                }));
+            }
+            
+            if (showVectors) {
+                // Vector arrow layer
+                const vectorData = windField.map(w => {
+                    const scale = vectorScale * 0.5;
+                    const endLon = w.position[0] + w.u * scale;
+                    const endLat = w.position[1] + w.v * scale;
+                    
+                    return {
+                        from: w.position,
+                        to: [endLon, endLat],
+                        color: getWindColor(w.speed)
+                    };
+                });
+                
+                layers.push(new deck.LineLayer({
+                    id: 'wind-vectors',
+                    data: vectorData,
+                    getSourcePosition: d => d.from,
+                    getTargetPosition: d => d.to,
+                    getColor: d => d.color,
+                    getWidth: 2,
+                    widthMinPixels: 1,
+                    widthMaxPixels: 3,
+                    opacity: 0.6
+                }));
+            }
+            
+            return layers;
+        }
+
+        // Animation loop
+        function animate() {
+            if (!isPlaying) return;
+            
+            const currentTime = Date.now();
+            const deltaTime = currentTime - startTime;
+            startTime = currentTime;
+            
+            updateParticles(deltaTime);
+            
+            if (deckInstance) {
+                deckInstance.setProps({
+                    layers: createLayers()
+                });
+            }
+            
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // Initialize deck.gl
+        function initDeck() {
+            deckInstance = new deck.DeckGL({
+                container: 'container',
+                mapboxApiAccessToken: null, // Using OSM basemap
+                mapStyle: 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+                initialViewState: {
+                    longitude: 0,
+                    latitude: 20,
+                    zoom: 2,
+                    pitch: 0,
+                    bearing: 0
+                },
+                controller: true,
+                layers: createLayers()
+            });
+        }
+
+        // Event listeners
+        document.getElementById('playPause').addEventListener('click', () => {
+            isPlaying = !isPlaying;
+            document.getElementById('playPause').textContent = isPlaying ? 'Pause Animation' : 'Play Animation';
+            if (isPlaying) {
+                startTime = Date.now();
+                animate();
+            }
+        });
+
+        document.getElementById('showParticles').addEventListener('change', (e) => {
+            showParticles = e.target.checked;
+            deckInstance.setProps({ layers: createLayers() });
+        });
+
+        document.getElementById('showVectors').addEventListener('change', (e) => {
+            showVectors = e.target.checked;
+            deckInstance.setProps({ layers: createLayers() });
+        });
+
+        document.getElementById('particleCount').addEventListener('input', (e) => {
+            particleCount = parseInt(e.target.value);
+            document.getElementById('particleCountValue').textContent = particleCount;
+            initializeParticles();
+        });
+
+        document.getElementById('particleSpeed').addEventListener('input', (e) => {
+            animationSpeed = parseFloat(e.target.value);
+            document.getElementById('particleSpeedValue').textContent = animationSpeed.toFixed(1) + 'x';
+        });
+
+        document.getElementById('vectorScale').addEventListener('input', (e) => {
+            vectorScale = parseFloat(e.target.value);
+            document.getElementById('vectorScaleValue').textContent = vectorScale.toFixed(1) + 'x';
+            deckInstance.setProps({ layers: createLayers() });
+        });
+
+        // Initialize everything
+        generateWindField();
+        initializeParticles();
+        initDeck();
+        animate();
+    </script>
+</body>
+</html>
