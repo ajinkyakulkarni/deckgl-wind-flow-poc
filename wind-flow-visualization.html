@@ -298,8 +298,6 @@
                     windGrid[key].push(point);
                 });
                 
-                console.log('Wind grid cells:', Object.keys(windGrid).length);
-                console.log('Sample wind values:', windField.slice(0, 5).map(w => ({ lon: w.position[0], lat: w.position[1], u: w.u, v: w.v })));
                 
                 updateProgress(90, 'Wind data loaded successfully');
                 return true;
@@ -578,12 +576,6 @@
             
             const trailData = createTrailData();
             
-            // Debug: Log first particle position periodically
-            if (frameCount % 60 === 0 && particles.length > 0) {
-                const p = particles[0];
-                const wind = interpolateWind(p.lon, p.lat);
-                console.log('Particle 0:', { lon: p.lon.toFixed(2), lat: p.lat.toFixed(2), wind_u: wind.u, wind_v: wind.v });
-            }
             
             deckgl.setProps({
                 layers: [
