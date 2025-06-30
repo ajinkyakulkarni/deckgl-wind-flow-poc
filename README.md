@@ -1,28 +1,20 @@
 # Wind Vector Visualization with deck.gl
 
-This project provides interactive visualizations of global wind patterns using deck.gl, a WebGL-powered framework for visual exploratory data analysis of large datasets.
+This project provides an interactive visualization of global wind patterns using deck.gl, a WebGL-powered framework for visual exploratory data analysis of large datasets.
 
 ## Overview
 
-Two visualization modes are available:
-
-1. **Wind Flow Visualization** (`wind-flow-visualization.html`) - Particle flow animation showing wind movement as continuous streams
-2. **Global Wind Vectors** (`global-wind-vectors.html`) - Traditional vector arrows with animated particles
+The visualization shows wind flow as animated particles that move according to wind vector data, creating continuous streams that reveal atmospheric circulation patterns.
 
 ## Features
 
-### Wind Flow Visualization
 - **Particle-based animation**: Thousands of particles flow according to wind vectors
 - **Smooth trails**: Particles leave fading trails showing wind paths
 - **Real data support**: Loads wind data from CSV files with U/V components
 - **Performance optimized**: Spatial indexing for fast interpolation with large datasets
 - **Interactive controls**: Adjust particle count, animation speed, and trail persistence
-
-### Global Wind Vectors
-- **Dual visualization**: Both particles and vector arrows
-- **Vector scaling**: Adjustable arrow sizes
-- **Speed-based coloring**: Blue (slow) → Orange (moderate) → Red (fast)
-- **Toggle layers**: Show/hide particles or vectors independently
+- **Automatic data sampling**: Handles large datasets by intelligent sampling
+- **Progress indicator**: Shows loading status for large data files
 
 ## Data Format
 
@@ -45,8 +37,7 @@ index,lev,lat,lon,U,V
 Place your files in a directory:
 ```
 deckgl-model-data-animation/
-├── wind-flow-visualization.html
-├── global-wind-vectors.html
+├── index.html
 ├── uv.csv (your wind data)
 └── README.md
 ```
@@ -74,9 +65,9 @@ npx http-server -p 8888
 ```
 
 ### 4. Open in Browser
-Navigate to:
-- Wind Flow: `http://localhost:8888/wind-flow-visualization.html`
-- Vector View: `http://localhost:8888/global-wind-vectors.html`
+Navigate to: `http://localhost:8888/`
+
+The visualization will automatically load the `uv.csv` file and begin animating.
 
 ## Understanding the Visualization
 
@@ -110,17 +101,10 @@ For true temporal animation, you would need:
 
 ## Controls
 
-### Wind Flow Visualization
 - **Pause/Play**: Stop or resume animation
-- **Particle Count**: 1,000-10,000 particles
+- **Particle Count**: 1,000-10,000 particles (default: 3,000)
 - **Speed**: Animation speed multiplier (0.1x-3x)
-- **Fade Speed**: Trail persistence (0.9-0.99)
-
-### Global Wind Vectors
-- **Show Particles/Vectors**: Toggle visualization layers
-- **Particle Count**: Number of animated particles
-- **Animation Speed**: Particle movement speed
-- **Vector Scale**: Size of arrow indicators
+- **Fade Speed**: Trail persistence (0.9-0.99) - higher values create longer trails
 
 ## Technical Details
 
