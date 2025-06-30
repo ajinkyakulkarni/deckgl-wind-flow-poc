@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/@loaders.gl/core@3.4.14/dist/dist.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -234,29 +234,28 @@
             try {
                 updateProgress(10, 'Fetching compressed wind data...');
                 
-                // Try to load compressed file first
+                // Load compressed file
                 let text;
-                try {
-                    const response = await fetch('uv.csv.zip');
-                    if (response.ok) {
-                        updateProgress(20, 'Decompressing wind data...');
-                        const arrayBuffer = await response.arrayBuffer();
-                        const compressed = new Uint8Array(arrayBuffer);
-                        
-                        // Decompress using pako
-                        const decompressed = pako.inflate(compressed);
-                        text = new TextDecoder().decode(decompressed);
-                        updateProgress(30, 'Parsing decompressed CSV data...');
-                    } else {
-                        throw new Error('Compressed file not found');
-                    }
-                } catch (zipError) {
-                    // Fallback to uncompressed file
-                    console.log('Compressed file not found, trying uncompressed...');
-                    const response = await fetch('uv.csv');
-                    updateProgress(30, 'Parsing CSV data...');
-                    text = await response.text();
+                const response = await fetch('uv.csv.zip');
+                if (!response.ok) {
+                    throw new Error('Failed to load wind data');
                 }
+                
+                updateProgress(20, 'Decompressing wind data...');
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // Load ZIP file using JSZip
+                const zip = await JSZip.loadAsync(arrayBuffer);
+                
+                // Find the CSV file in the ZIP
+                const csvFile = zip.file(/\.csv$/i)[0];
+                if (!csvFile) {
+                    throw new Error('No CSV file found in ZIP');
+                }
+                
+                // Extract the CSV content
+                text = await csvFile.async('string');
+                updateProgress(30, 'Parsing decompressed CSV data...');
                 
                 const lines = text.trim().split('\n');
                 const header = lines[0].split(',');
@@ -325,10 +324,10 @@
                 return true;
             } catch (error) {
                 console.error('Error loading wind data:', error);
-                updateProgress(50, 'Failed to load CSV, using generated data...');
+                updateProgress(50, 'Failed to load data, using synthetic wind field...');
                 // Fall back to generated data
                 generateWindField();
-                updateProgress(90, 'Using generated wind data');
+                updateProgress(90, 'Using synthetic wind data');
                 return false;
             }
         }
