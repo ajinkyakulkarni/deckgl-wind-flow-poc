@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/@loaders.gl/core@3.4.14/dist/dist.min.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -231,11 +232,32 @@
         // Load wind data from CSV
         async function loadWindData() {
             try {
-                updateProgress(10, 'Fetching wind data...');
-                const response = await fetch('uv.csv');
+                updateProgress(10, 'Fetching compressed wind data...');
                 
-                updateProgress(30, 'Parsing CSV data...');
-                const text = await response.text();
+                // Try to load compressed file first
+                let text;
+                try {
+                    const response = await fetch('uv.csv.zip');
+                    if (response.ok) {
+                        updateProgress(20, 'Decompressing wind data...');
+                        const arrayBuffer = await response.arrayBuffer();
+                        const compressed = new Uint8Array(arrayBuffer);
+                        
+                        // Decompress using pako
+                        const decompressed = pako.inflate(compressed);
+                        text = new TextDecoder().decode(decompressed);
+                        updateProgress(30, 'Parsing decompressed CSV data...');
+                    } else {
+                        throw new Error('Compressed file not found');
+                    }
+                } catch (zipError) {
+                    // Fallback to uncompressed file
+                    console.log('Compressed file not found, trying uncompressed...');
+                    const response = await fetch('uv.csv');
+                    updateProgress(30, 'Parsing CSV data...');
+                    text = await response.text();
+                }
+                
                 const lines = text.trim().split('\n');
                 const header = lines[0].split(',');
                 

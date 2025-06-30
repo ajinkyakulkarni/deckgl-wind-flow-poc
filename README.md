@@ -46,10 +46,9 @@ deckgl-model-data-animation/
 └── screenshot.gif         # Demo screenshot
 ```
 
-### 2. Prepare Wind Data
+### 2. Wind Data
 - The wind data is provided as `uv.csv.zip` (compressed from 158MB to 47MB)
-- Extract it first: `unzip uv.csv.zip`
-- Ensure it follows the format described above
+- **No manual extraction needed** - the visualization automatically decompresses it in the browser
 - Large datasets (>100k points) will be automatically sampled for performance
 
 #### Note on Large Files
@@ -57,13 +56,14 @@ The repository includes compressed/split large files due to GitHub's file size c
 
 1. **Wind Data (uv.csv)**:
    - Provided as `uv.csv.zip` (47MB compressed from 158MB)
-   - Extract before running: `unzip uv.csv.zip`
+   - Automatically decompressed on the client side using JavaScript
+   - Falls back to `uv.csv` if uncompressed version is available
    
-2. **NetCDF File**:
+2. **NetCDF File** (optional):
    - Split into parts: `pres_prediction.nc.part.aa`, `.ab`, `.ac`
-   - Run `./reassemble_netcdf.sh` to reconstruct the original file
+   - Run `./reassemble_netcdf.sh` to reconstruct if needed
    
-Both reassembled files will be ignored by git (see .gitignore)
+The .gitignore prevents accidentally committing uncompressed versions
 
 ### 3. Start Local Server
 Due to browser security restrictions, you need to serve the files through a local web server:
