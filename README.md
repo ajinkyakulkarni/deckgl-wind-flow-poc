@@ -36,24 +36,34 @@ index,lev,lat,lon,U,V
 ## Setup Instructions
 
 ### 1. File Structure
-Place your files in a directory:
 ```
 deckgl-model-data-animation/
-├── index.html
-├── uv.csv (your wind data)
-└── README.md
+├── index.html              # Main visualization
+├── uv.csv.zip             # Compressed wind data (extract before use)
+├── pres_prediction.nc.part.*  # Split NetCDF file parts
+├── reassemble_netcdf.sh   # Script to reassemble NetCDF
+├── README.md              # This file
+└── screenshot.gif         # Demo screenshot
 ```
 
 ### 2. Prepare Wind Data
-- Name your wind data file `uv.csv`
+- The wind data is provided as `uv.csv.zip` (compressed from 158MB to 47MB)
+- Extract it first: `unzip uv.csv.zip`
 - Ensure it follows the format described above
 - Large datasets (>100k points) will be automatically sampled for performance
 
-#### Note on Large NetCDF File
-The repository includes a split NetCDF file for file size constraints:
-- `pres_prediction.nc.part.aa`, `.ab`, `.ac` - Split parts of the original NetCDF file
-- Run `./reassemble_netcdf.sh` to reconstruct the original file
-- The reassembled file will be ignored by git (see .gitignore)
+#### Note on Large Files
+The repository includes compressed/split large files due to GitHub's file size constraints:
+
+1. **Wind Data (uv.csv)**:
+   - Provided as `uv.csv.zip` (47MB compressed from 158MB)
+   - Extract before running: `unzip uv.csv.zip`
+   
+2. **NetCDF File**:
+   - Split into parts: `pres_prediction.nc.part.aa`, `.ab`, `.ac`
+   - Run `./reassemble_netcdf.sh` to reconstruct the original file
+   
+Both reassembled files will be ignored by git (see .gitignore)
 
 ### 3. Start Local Server
 Due to browser security restrictions, you need to serve the files through a local web server:
