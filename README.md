@@ -49,6 +49,12 @@ deckgl-model-data-animation/
 - Ensure it follows the format described above
 - Large datasets (>100k points) will be automatically sampled for performance
 
+#### Note on Large NetCDF File
+The repository includes a split NetCDF file for file size constraints:
+- `pres_prediction.nc.part.aa`, `.ab`, `.ac` - Split parts of the original NetCDF file
+- Run `./reassemble_netcdf.sh` to reconstruct the original file
+- The reassembled file will be ignored by git (see .gitignore)
+
 ### 3. Start Local Server
 Due to browser security restrictions, you need to serve the files through a local web server:
 
