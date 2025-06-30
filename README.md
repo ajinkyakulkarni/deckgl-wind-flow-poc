@@ -2,6 +2,8 @@
 
 This project provides an interactive visualization of global wind patterns using deck.gl, a WebGL-powered framework for visual exploratory data analysis of large datasets.
 
+![Wind Flow Visualization](screenshot.gif)
+
 ## Overview
 
 The visualization shows wind flow as animated particles that move according to wind vector data, creating continuous streams that reveal atmospheric circulation patterns.
