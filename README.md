@@ -84,10 +84,21 @@ The current implementation uses **static wind data** (single timestamp):
 - Shows where air parcels would travel IF wind remained constant
 - Does NOT show how wind patterns change over time
 
-For true temporal animation, you would need:
-- Multiple timestamps of wind data
+#### Why This Visualization is Still Valuable
+Despite using a single timestamp, this approach provides important insights:
+
+1. **Flow Patterns** - Reveals circulation patterns, convergence zones, and wind streams that are difficult to see with static arrows
+2. **Transport Pathways** - Shows potential paths for atmospheric transport (pollution, dust, moisture)
+3. **Relative Speeds** - Visual comparison of wind speeds across different regions through particle density and trail length
+4. **Intuitive Understanding** - Animated particles make wind fields more intuitive than traditional vector plots
+5. **Educational Value** - Helps students and researchers understand atmospheric dynamics
+
+#### For True Temporal Evolution
+To show how weather systems actually evolve, you would need:
+- Multiple timestamps of wind data (e.g., hourly data)
 - Time interpolation between frames
 - Dynamic wind field updates
+- Playback controls to move forward/backward in time
 
 ### Performance Considerations
 
